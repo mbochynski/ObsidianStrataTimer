@@ -1,11 +1,11 @@
 {
-    "id": "simple-time-tracker",
-    "name": "Super Simple Time Tracker",
-    "version": "1.2.2",
+    "id": "strata-time-tracker",
+    "name": "Strata Time Tracker",
+    "version": "1.0.0",
     "minAppVersion": "1.11.0",
     "description": "Multi-purpose time trackers for your notes!",
-    "author": "Ellpeck",
-    "authorUrl": "https://ellpeck.de",
-    "fundingUrl": "https://ellpeck.de/support",
+    "author": "Strata",
+    "authorUrl": "",
+    "fundingUrl": "",
     "isDesktopOnly": false
 }

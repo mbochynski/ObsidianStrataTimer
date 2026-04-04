@@ -1,12 +1,14 @@
 export const defaultSettings: SimpleTimeTrackerSettings = {
-    timestampFormat: "YY-MM-DD HH:mm:ss",
-    editableTimestampFormat: "YYYY-MM-DD HH:mm:ss",
+    timestampFormat: "YY-MM-DD HH:mm",
+    editableTimestampFormat: "YYYY-MM-DD HH:mm",
     csvDelimiter: ",",
     fineGrainedDurations: true,
     reverseSegmentOrder: false,
     timestampDurations: false,
     showToday: false,
-    useMonospacedFont: false
+    useMonospacedFont: false,
+    defaultTimeOnly: true,
+    maxDepth: 2
 };
 
 export interface SimpleTimeTrackerSettings {
@@ -19,4 +21,6 @@ export interface SimpleTimeTrackerSettings {
     timestampDurations: boolean;
     showToday: boolean;
     useMonospacedFont: boolean;
+    defaultTimeOnly: boolean;
+    maxDepth: number;
 }

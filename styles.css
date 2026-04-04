@@ -7,20 +7,19 @@
     height: auto;
 }
 
-.simple-time-tracker-btn,
-.simple-time-tracker-txt {
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
+@keyframes simple-time-tracker-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
 }
 
-.simple-time-tracker-txt {
-    text-align: center;
+.simple-time-tracker-blink {
+    animation: simple-time-tracker-blink 1s step-start infinite;
 }
 
-.simple-time-tracker-btn {
-    margin-top: 10px;
-    margin-bottom: 10px;
+.simple-time-tracker-time-only-bar {
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
 }
 
 .simple-time-tracker-btn svg {
@@ -43,6 +42,7 @@
     display: block;
 }
 
+
 .simple-time-tracker-timer {
     margin: 20px;
 }
@@ -63,6 +63,12 @@
     border: none;
 }
 
+.simple-time-tracker-table td span {
+    display: block;
+    min-height: 1em;
+    cursor: text;
+}
+
 .simple-time-tracker-table .clickable-icon {
     display: inline-block;
     vertical-align: middle;
@@ -73,12 +79,14 @@
 }
 
 .simple-time-tracker-input {
-    max-width: 150px;
-    min-width: 100px;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
 }
 
 .simple-time-tracker-table-buttons {
-    text-align: right !important;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .simple-time-tracker-table tr:hover {

@@ -97,6 +97,17 @@ export class SimpleTimeTrackerSettingsTab extends PluginSettingTab {
                 });
             }));
 
+        group.addSetting(s => s
+            .setName("Time Only by Default")
+            .setDesc("Whether new trackers should display only the time (HH:mm) rather than the full date and time. Can be overridden per tracker using the toggle at the bottom of each tracker.")
+            .addToggle(t => {
+                t.setValue(this.plugin.settings.defaultTimeOnly);
+                t.onChange(async v => {
+                    this.plugin.settings.defaultTimeOnly = v;
+                    await this.plugin.saveSettings();
+                });
+            }));
+
         this.containerEl.createEl("hr");
         this.containerEl.createEl("p", { text: "Need help using the plugin? Feel free to join the Discord server!" });
         this.containerEl.createEl("a", { href: "https://link.ellpeck.de/discordweb" }).createEl("img", {
