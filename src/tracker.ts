@@ -14,6 +14,7 @@ export interface Entry {
     endTime: string;
     subEntries?: Entry[];
     collapsed?: boolean;
+    synced?: boolean;
 }
 
 export async function saveTracker(app: App, tracker: Tracker, fileName: string, section: MarkdownSectionInformation): Promise<void> {
@@ -135,6 +136,8 @@ export function displayTracker(app: App, tracker: Tracker, element: HTMLElement,
         let table = element.createEl("table", { cls: "simple-time-tracker-table" });
         table.style.tableLayout = "fixed";
         let headerRow = table.createEl("tr");
+        let thSynced = createEl("th");
+        thSynced.style.width = "2em";
         let thSegment = createEl("th", { text: "Segment" });
         let thStart = createEl("th", { text: "Start time" });
         let thEnd = createEl("th", { text: "End time" });
@@ -145,10 +148,11 @@ export function displayTracker(app: App, tracker: Tracker, element: HTMLElement,
         thEnd.style.width = tsWidth;
         thDuration.style.width = "90px";
         thButtons.style.width = "100px";
-        headerRow.append(thSegment, thStart, thEnd, thDuration, thButtons);
+        headerRow.append(thSynced, thSegment, thStart, thEnd, thDuration, thButtons);
 
+        const activeEdit: { commit: (() => void) | null } = { commit: null };
         for (let entry of orderedEntries(tracker.entries, settings))
-            addEditableTableRow(app, tracker, entry, table, newSegmentNameBox, running, getFile, getSectionInfo, settings, 0, component, timeOnly);
+            addEditableTableRow(app, tracker, entry, table, newSegmentNameBox, running, getFile, getSectionInfo, settings, 0, component, activeEdit, timeOnly);
 
         // add copy buttons
         let buttons = element.createEl("div", { cls: "simple-time-tracker-bottom" });
@@ -332,8 +336,12 @@ export function formatDuration(totalTime: number, settings: SimpleTimeTrackerSet
 }
 
 
-function nowRounded(): string {
-    return moment(Math.round(Date.now() / 60000) * 60000).toISOString();
+function nowFloor(): string {
+    return moment(Math.floor(Date.now() / 60000) * 60000).toISOString();
+}
+
+function nowCeil(): string {
+    return moment(Math.ceil(Date.now() / 60000) * 60000).toISOString();
 }
 
 function startSubEntry(entry: Entry, name: string): void {
@@ -346,19 +354,19 @@ function startSubEntry(entry: Entry, name: string): void {
 
     if (!name)
         name = '';
-    entry.subEntries.push({ name: name, startTime: nowRounded(), endTime: null, subEntries: undefined });
+    entry.subEntries.push({ name: name, startTime: nowFloor(), endTime: null, subEntries: undefined });
 }
 
 function startNewEntry(tracker: Tracker, name: string): void {
     if (!name)
         name = ''
-    let entry: Entry = { name: name, startTime: nowRounded(), endTime: null, subEntries: undefined };
+    let entry: Entry = { name: name, startTime: nowFloor(), endTime: null, subEntries: undefined };
     tracker.entries.push(entry);
 }
 
 function endRunningEntry(tracker: Tracker): void {
     let entry = getRunningEntry(tracker.entries);
-    entry.endTime = nowRounded();
+    entry.endTime = nowCeil();
 }
 
 function removeEntry(entries: Entry[], toRemove: Entry): boolean {
@@ -449,9 +457,25 @@ function createTableSection(entry: Entry, settings: SimpleTimeTrackerSettings, i
     return ret;
 }
 
-function addEditableTableRow(app: App, tracker: Tracker, entry: Entry, table: HTMLTableElement, newSegmentNameBox: TextComponent, trackerRunning: boolean, getFile: GetFile, getSectionInfo: () => MarkdownSectionInformation, settings: SimpleTimeTrackerSettings, indent: number, component: MarkdownRenderChild, timeOnly = false): void {
+function addEditableTableRow(app: App, tracker: Tracker, entry: Entry, table: HTMLTableElement, newSegmentNameBox: TextComponent, trackerRunning: boolean, getFile: GetFile, getSectionInfo: () => MarkdownSectionInformation, settings: SimpleTimeTrackerSettings, indent: number, component: MarkdownRenderChild, activeEdit: { commit: (() => void) | null }, timeOnly = false, parentSynced = false): void {
     let entryRunning = getRunningEntry(tracker.entries) == entry;
     let row = table.createEl("tr");
+
+    // Synced checkbox cell (first column)
+    const isSynced = entry.synced || parentSynced;
+    if (isSynced) row.style.opacity = "0.7";
+    const syncedCell = row.createEl("td");
+    syncedCell.addClass("simple-time-tracker-synced-cell");
+    if (indent === 0) {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = !!entry.synced;
+        checkbox.addEventListener("change", async () => {
+            entry.synced = checkbox.checked;
+            await saveTracker(app, tracker, getFile(), getSectionInfo());
+        });
+        syncedCell.appendChild(checkbox);
+    }
 
     let nameField = new EditableField(row, indent, entry.name);
     let startField = new EditableTimestampField(row, entry.startTime, settings, timeOnly);
@@ -532,8 +556,10 @@ function addEditableTableRow(app: App, tracker: Tracker, entry: Entry, table: HT
         }
     }
 
-    async function saveChanges() {
+    function commitEdit() {
+        activeEdit.commit = null;
         entry.name = nameField.endEdit();
+        nameField.label.appendChild(expandButton.buttonEl); // re-append: endEdit's setText wipes child nodes
         expandButton.buttonEl.style.display = null;
         startField.endEdit();
         entry.startTime = startField.getTimestamp();
@@ -541,12 +567,21 @@ function addEditableTableRow(app: App, tracker: Tracker, entry: Entry, table: HT
             endField.endEdit();
             entry.endTime = endField.getTimestamp();
         }
-        await saveTracker(app, tracker, getFile(), getSectionInfo());
         editButton.setIcon("lucide-pencil");
-        renderNameAsMarkdown(app, nameField.label, getFile, component);
+    }
+
+    async function saveChanges() {
+        commitEdit();
+        await saveTracker(app, tracker, getFile(), getSectionInfo());
     }
 
     function startEditing(focus: "name" | "start" | "end" = "name") {
+        // commit any other row currently being edited (no file write, no re-render)
+        if (activeEdit.commit) {
+            activeEdit.commit();
+        }
+        activeEdit.commit = commitEdit;
+
         nameField.beginEdit(entry.name, focus === "name");
         expandButton.buttonEl.style.display = "none";
         // only allow editing start and end times if we don't have sub entries
@@ -557,21 +592,22 @@ function addEditableTableRow(app: App, tracker: Tracker, entry: Entry, table: HT
         }
         editButton.setIcon("lucide-check");
 
-        // Set up save/cancel handlers for keyboard shortcuts
-        nameField.onSave = startField.onSave = endField.onSave = async () => {
-            await saveChanges();
-        };
-
-        nameField.onCancel = startField.onCancel = endField.onCancel = () => {
-            nameField.endEdit();
-            startField.endEdit();
-            if (!entryRunning) {
-                endField.endEdit();
-            }
-            expandButton.buttonEl.style.display = null;
-            editButton.setIcon("lucide-pencil");
-        };
+        const onSaveOrCancel = async () => { await saveChanges(); };
+        nameField.onSave = startField.onSave = endField.onSave = onSaveOrCancel;
+        nameField.onCancel = startField.onCancel = endField.onCancel = onSaveOrCancel;
     }
+
+    component.registerDomEvent(document, "mousedown", (e: MouseEvent) => {
+        if (!nameField.editing()) return;
+        if (row.contains(e.target as Node)) return;
+        if (table.contains(e.target as Node)) {
+            // clicking another row in the same table — commit only, no re-render
+            // (the other row's startEditing will also call activeEdit.commit, but that's a no-op here)
+            commitEdit();
+        } else {
+            void saveChanges();
+        }
+    });
 
     new ButtonComponent(entryButtons)
         .setClass("clickable-icon")
@@ -592,7 +628,7 @@ function addEditableTableRow(app: App, tracker: Tracker, entry: Entry, table: HT
 
     if (entry.subEntries && !entry.collapsed) {
         for (let sub of orderedEntries(entry.subEntries, settings))
-            addEditableTableRow(app, tracker, sub, table, newSegmentNameBox, trackerRunning, getFile, getSectionInfo, settings, indent + 1, component, timeOnly);
+            addEditableTableRow(app, tracker, sub, table, newSegmentNameBox, trackerRunning, getFile, getSectionInfo, settings, indent + 1, component, activeEdit, timeOnly, entry.synced || parentSynced);
     }
 }
 
@@ -642,11 +678,11 @@ class EditableField {
     }
 
     editing(): boolean {
-        return this.label.hidden;
+        return this.label.style.display === "none";
     }
 
     beginEdit(value: string, focus = false): void {
-        this.label.hidden = true;
+        this.label.style.display = "none";
         this.box.setValue(value);
         this.box.inputEl.show();
         if (focus)
@@ -657,7 +693,7 @@ class EditableField {
         const value = this.box.getValue();
         this.label.setText(value);
         this.box.inputEl.hide();
-        this.label.hidden = false;
+        this.label.style.display = "";
         return value;
     }
 }
@@ -692,7 +728,7 @@ class EditableTimestampField extends EditableField {
         }
         this.label.setText(displayValue);
         this.box.inputEl.hide();
-        this.label.hidden = false;
+        this.label.style.display = "";
         return inputValue;
     }
 

@@ -92,3 +92,9 @@
 .simple-time-tracker-table tr:hover {
     background-color: var(--background-modifier-hover);
 }
+
+.simple-time-tracker-synced-cell {
+    width: 2em;
+    text-align: center;
+    vertical-align: middle;
+}

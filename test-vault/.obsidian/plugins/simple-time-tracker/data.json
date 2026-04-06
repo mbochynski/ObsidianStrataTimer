@@ -2,9 +2,11 @@
   "timestampFormat": "YY-MM-DD hh:mm:ss",
   "editableTimestampFormat": "YYYY-MM-DD HH:mm:ss",
   "csvDelimiter": ",",
-  "fineGrainedDurations": true,
+  "fineGrainedDurations": false,
   "reverseSegmentOrder": false,
   "timestampDurations": true,
-  "showToday": true,
-  "useMonospacedFont": false
+  "showToday": false,
+  "useMonospacedFont": true,
+  "defaultTimeOnly": true,
+  "maxDepth": 2
 }
